@@ -1,4 +1,3 @@
-// note 常にロボットの角度は0°と仮定 単位 m
 #include <mbed.h>
 #include <PID_new.hpp>
 #include <cstring>
@@ -13,6 +12,9 @@ Pid pid({pid_gain, 24000, -24000}); // P,I,D,Max,Min
 
 bool readlines(BufferedSerial &serial, char *buffer, bool is_integar = false, bool is_float = false);
 
+constexpr float rad_to_deg = 180.0 / M_PI;
+constexpr float deg_to_rad = M_PI / 180.0;
+
 int main()
 {
     CANMessage msg_encoder;
@@ -20,14 +22,14 @@ int main()
 
     constexpr int motor_amount = 4;
     constexpr int ppr = 256;
-    constexpr int motor_place_deg[motor_amount] = {45, 135, 225, 315};
-    constexpr float wheel_radius = 0.03;
-    constexpr float center_to_wheel = 1.0;
-    int motor_deg[motor_amount] = {0};
-    int pre_motor_deg[motor_amount] = {0};
-    int robot_velocity[3] = {0};
-    int goal_dps[motor_amount] = {0};
-    int output[motor_amount] = {0};
+    constexpr int motor_place_angle[motor_amount] = {45, 135, 225, 315}; // degree
+    constexpr float wheel_radius = 0.03; // meter
+    constexpr float center_to_wheel = 1.0; // meter
+    int motor_theta[motor_amount] = {0}; // degree
+    int pre_motor_theta[motor_amount] = {0}; // degree
+    int robot_velocity[3] = {0}; // m/s, m/s, deg/s
+    int goal_angular_velocity[motor_amount] = {0}; // deg/s
+    int motor_output[motor_amount] = {0};
 
     while (true)
     {
@@ -40,8 +42,8 @@ int main()
             for (int i = 0; i < motor_amount; i++)
             {
                 encoder_data[i] = msg_encoder.data[2 * i + 1] << 8 | msg_encoder.data[2 * i];
-                float k = 360.0 / (ppr * 2.0);
-                motor_deg[i] = encoder_data[i] * k;
+                float encoder_to_deg = 360.0 / (ppr * 2.0);
+                motor_theta[i] = encoder_data[i] * encoder_to_deg;
             }
         }
         char data[10];
@@ -70,19 +72,17 @@ int main()
             int motor_dps[motor_amount];
             for (int i = 0; i < motor_amount; i++)
             {
-                if (motor_deg[i] - pre_motor_deg[i] > 32767)
+                if (motor_theta[i] - pre_motor_theta[i] > 32767)
                 {
-                    motor_deg[i] += 65535; // -32767 + k = 32768
+                    motor_theta[i] += 65535; // -32767 + k = 32768
                 }
-                motor_dps[i] = (motor_deg[i] - pre_motor_deg[i]) * 100; // * 100 = / 0.01
-                pre_motor_deg[i] = motor_deg[i];
+                motor_dps[i] = (motor_theta[i] - pre_motor_theta[i]) * 100; // * 100 = / 0.01
+                pre_motor_theta[i] = motor_theta[i];
 
-                int rad_to_deg = 180 / M_PI;
-
-                goal_dps[i] = (sin(motor_place_deg[i]) * rad_to_deg * robot_velocity[0] + cos(motor_place_deg[i]) * rad_to_deg * robot_velocity[1] + robot_velocity[2] * center_to_wheel) / wheel_radius;
-                output[i] = pid.calc(goal_dps[i], motor_dps[i], 0.01);
+                goal_angular_velocity[i] = (sin(motor_place_angle[i] * deg_to_rad) * robot_velocity[0] + cos(motor_place_angle[i] * deg_to_rad) * robot_velocity[1] + robot_velocity[2] * center_to_wheel) / wheel_radius * rad_to_deg;
+                motor_output[i] = pid.calc(goal_angular_velocity[i], motor_dps[i], 0.01);
             }
-            CANMessage msg_motor(2, (const uint8_t *)output, 8);
+            CANMessage msg_motor(2, (const uint8_t *)motor_output, 8);
             can.write(msg_motor);
             pre = now;
         }
