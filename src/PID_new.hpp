@@ -1,7 +1,6 @@
 #ifndef PID_NEW_HPP
 #define PID_NEW_HPP
 
-
 #include <algorithm>
 
 struct PidGain
@@ -14,21 +13,22 @@ struct PidGain
 struct PidParameter
 {
     PidGain gain;
-    float max;
     float min;
+    float max;
 };
 
 class Pid
 {
-    public:
-    Pid(const PidParameter parameter) : _parameter(parameter), _pre_error(0){}
+public:
+    Pid(const PidParameter parameter) : _parameter(parameter), _pre_error(0), _integral(0) {}
 
     float calc(const float goal, const float actual, const float dt_sec)
     {
         float error = goal - actual;
         _integral += error * dt_sec;
-        float deriv = dt_sec == 0 ? 0 : (actual - _pre_error) / dt_sec;
-        float output = _parameter.gain.kp * error + _parameter.gain.ki * _integral - _parameter.gain.kd * deriv;
+        float deriv = dt_sec == 0 ? 0 : (error - _pre_error) / dt_sec;
+        float output = _parameter.gain.kp * error + _parameter.gain.ki * _integral + _parameter.gain.kd * deriv;
+
         output = std::clamp(output, _parameter.min, _parameter.max);
         _pre_error = error;
         return output;
@@ -51,11 +51,10 @@ class Pid
         _parameter.min = min;
     }
 
-    private:
+private:
     PidParameter _parameter;
     float _integral;
     float _pre_error;
 };
-
 
 #endif // PID_NEW_HPP
