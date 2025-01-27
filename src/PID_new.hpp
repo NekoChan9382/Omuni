@@ -53,8 +53,8 @@ public:
 
 private:
     PidParameter _parameter;
-    float _integral;
     float _pre_error;
+    float _integral;
 };
 
 #endif // PID_NEW_HPP
