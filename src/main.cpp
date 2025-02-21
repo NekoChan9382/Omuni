@@ -20,14 +20,15 @@ float duration_to_sec(const std::chrono::duration<float> &duration);
 int main()
 {
     constexpr int motor_amount = 4;
-    constexpr int ppr = 512;
+    constexpr int ppr = 256;
     int velocity_xy[2] = {0}; // x, y, ang
     float velocity_ang = 0;
     int pos_mm[3] = {0}; // x, y, ang
     int encoder_diff[motor_amount] = {0};
     int encoder_diff_pre[motor_amount] = {0};
-    constexpr int wheel_radius = 50; // mm
-    constexpr int robot_size = 300;  // mm
+    constexpr int wheel_radius = 34; // mm
+    constexpr int robot_size_calc = 190;  // mm
+    constexpr int robot_size_motor = 240;
 
     std::array<Pid, motor_amount> pid = {Pid({pid_gain, 10000, -10000}),
                                         Pid({pid_gain, 10000, -10000}),
@@ -100,7 +101,7 @@ int main()
                 float enc_to_rad = 2 * M_PI / ppr * 2;
                 float motor_ang = i * M_PI / 2;
                 float motor_offset = M_PI / 4;
-                float goal_ang_vel = (sin(theta_rad - (motor_ang + motor_offset)) * output_power + velocity_ang * robot_size) / wheel_radius;
+                float goal_ang_vel = (sin(theta_rad - (motor_ang + motor_offset)) * output_power + velocity_ang * robot_size_motor) / wheel_radius;
                 printf("goal_ang_vel %d: %f\n", i, goal_ang_vel);
                 motor_output[i] = pid[i].calc(goal_ang_vel, motor_dps[i] * enc_to_rad, elapsed);
             }
